@@ -1,281 +1,80 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 
-project(NovelRT VERSION 0.0.1)
-include(GNUInstallDirs)
+cmake_policy(SET CMP0091 NEW)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
-set(CMAKE_CXX_STANDARD 17)
-set(OpenGL_GL_PREFERENCE GLVND)
-
-set(NOVELRT_FONTS
-  src/Gayathri-Regular.ttf
-  src/Raleway-Regular.ttf
+project(NovelRT
+  VERSION 0.1.0
+  DESCRIPTION "NovelRT game engine"
+  HOMEPAGE_URL "https://github.com/novelrt/NovelRT"
+  LANGUAGES C CXX
 )
 
-set(NOVELRT_IMAGES
-  novel-chan.png
-)
-
-set(NOVELRT_SCRIPTS
-  src/avg.lua
-)
-
-set(NOVELRT_SHADERS
-  src/BasicFragmentShader.glsl
-  src/BasicVertexShader.glsl
-  src/FontFragmentShader.glsl
-  src/FontVertexShader.glsl
-  src/TexturedFragmentShader.glsl
-  src/TexturedVertexShader.glsl
-)
-
-set(NOVELRT_RESOURCES
-  ${NOVELRT_FONTS}
-  ${NOVELRT_IMAGES}
-  ${NOVELRT_SCRIPTS}
-  ${NOVELRT_SHADERS}
-)
-
-file(COPY ${NOVELRT_RESOURCES} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm") #TODO: check if the OPENGL_VERSION flag is actually still needed with the new setup
-    file(GLOB CORECLR lib/CoreCLR/LinuxARM32/*)
-    add_compile_definitions(OPENGL_VERSION=2)
-else()
-    add_compile_definitions(OPENGL_VERSION=3)
+if(MSVC)
+  # CMake by default appends /W3, so we need to strip it to prevent warnings (D9025)
+  string(REGEX REPLACE " /W[0-4]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE " /W[0-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  string(REGEX REPLACE " /M[TD]d?" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE " /M[TD]d?" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
-file(COPY ${CORECLR} DESTINATION lib/CoreCLR/Active)
-
-find_package(Freetype REQUIRED)
-find_package(glad CONFIG REQUIRED)
-find_package(glm CONFIG REQUIRED)
-find_package(SDL2 CONFIG REQUIRED)
-find_package(sdl2-image CONFIG REQUIRED)
-find_package(sdl2-mixer CONFIG REQUIRED)
-find_package(spdlog CONFIG REQUIRED)
-
-# lua doesn't provide native cmake support
-find_path(LUA_INCLUDE_DIR lua.h)
-include_directories(${LUA_INCLUDE_DIR})
-
-find_library(LUA_LIBRARY lua)
-link_libraries(${LUA_LIBRARY})
-
-find_package(Doxygen QUIET)
-
-set(NOVELRT_HEADERS
-  src/NovelWorldObject.h
-  src/GeoBounds.h
-  src/GeoVector.h
-  src/GraphicsCharacterRenderData.h
-  src/KeyCode.h
-  src/Lazy.h
-  src/NovelAudioService.h
-  src/NovelBasicFillRect.h
-  src/NovelBasicInteractionRect.h
-  src/NovelCommonArgs.h
-  src/NovelDebugService.h
-  src/NovelImageRect.h
-  src/NovelInteractionObject.h
-  src/NovelInteractionService.h
-  src/NovelLayeringService.h
-  src/NovelLoggingService.h
-  src/NovelObjectSortComparison.h
-  src/NovelRenderingService.h
-  src/NovelRenderObject.h
-  src/NovelUtilities.h
-  src/NovelRunner.h
-  src/NovelStepTimer.h
-  src/NovelTextRect.h
-  src/RGBAConfig.h
-  src/wrapper.hpp
-  src/NovelCamera.h
-  src/GeoMatrix4.h
-  src/CameraViewChangedEventArgs.h
-  src/ShaderProgram.h
-  src/CameraBlock.h)
-
-set(NOVELRT_SOURCES
-        src/NovelWorldObject.cpp
-  src/GeoBounds.cpp
-  src/NovelAudioService.cpp
-  src/NovelBasicFillRect.cpp
-  src/NovelBasicInteractionRect.cpp
-  src/NovelDebugService.cpp
-  src/NovelImageRect.cpp
-  src/NovelInteractionObject.cpp
-  src/NovelInteractionService.cpp
-  src/NovelLayeringService.cpp
-  src/NovelLoggingService.cpp
-  src/NovelRenderingService.cpp
-  src/NovelRenderObject.cpp
-  src/NovelRunner.cpp
-  src/NovelStepTimer.cpp
-  src/NovelTextRect.cpp
-  src/RGBAConfig.cpp
-  src/NovelCamera.cpp)
-
-set(NOVELRT_LINK_LIBRARIES
-  Freetype::Freetype
-  glad::glad
-  glm
-  SDL2::SDL2-static
-  SDL2::SDL2_image
-  SDL2::SDL2_mixer
-  SDL2::SDL2main
-  spdlog::spdlog
-)
-
-if(NOT WIN32)
-    set(NOVELRT_LINK_LIBRARIES
-      ${NOVELRT_LINK_LIBRARIES}
-      m
-    )
-endif()
-
-set(NOVELRT_EXECUTABLE_HEADERS
-  ${NOVELRT_HEADERS}
-)
-
-set(NOVELRT_EXECUTABLE_SOURCES
-  src/main.cpp
-)
-
-set(NOVELRT_EXECUTABLE_LINK_LIBRARIES
-  NovelRTLib
-)
-
-add_executable(NovelRT ${NOVELRT_EXECUTABLE_HEADERS} ${NOVELRT_EXECUTABLE_SOURCES})
-target_link_libraries(NovelRT ${NOVELRT_EXECUTABLE_LINK_LIBRARIES})
-
-if (WIN32)
+if(WIN32)
+  # this is needed, because Windows can be weird, man.
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 endif()
 
-set(NOVELRT_LIBRARY_HEADERS
-  ${NOVELRT_HEADERS}
-  src/NovelRunner_C.h
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+option(NOVELRT_BUILD_SAMPLES "Build NovelRT samples" ON)
+option(NOVELRT_BUILD_DOCUMENTATION "Build NovelRT documentation" ON)
+option(NOVELRT_BUILD_TESTS "Build NovelRT tests" ON)
+option(NOVELRT_INCLUDE_CONAN_PATHS "Include conan_paths toolchain" ON)
+
+set(NOVELRT_BZIP2_VERSION "1.0.8" CACHE STRING "BZip2 version")
+set(NOVELRT_DOTNET_VERSION "5.0.100" CACHE STRING "Dotnet version")
+set(NOVELRT_DOXYGEN_VERSION "1.8.17" CACHE STRING "Doxygen version")
+set(NOVELRT_FLAC_VERSION "1.3.3" CACHE STRING "FLAC version")
+set(NOVELRT_FREETYPE_VERSION "2.10.1" CACHE STRING "Freetype version")
+set(NOVELRT_GLAD_VERSION "0.1.33" CACHE STRING "Glad version")
+set(NOVELRT_GLFW_VERSION "3.3.2" CACHE STRING "GLFW version")
+set(NOVELRT_GLM_VERSION "0.9.9.7" CACHE STRING "GLM version")
+set(NOVELRT_GTEST_VERSION "1.10.0" CACHE STRING "GTest version")
+set(NOVELRT_OGG_VERSION "1.3.4" CACHE STRING "Ogg version")
+set(NOVELRT_OPENAL_VERSION "1.19.1" CACHE STRING "OpenAL version")
+set(NOVELRT_OPUS_VERSION "1.3.1" CACHE STRING "Opus version")
+set(NOVELRT_PNG_VERSION "1.6.37" CACHE STRING "PNG version")
+set(NOVELRT_SNDFILE_VERSION "1.0.29" CACHE STRING "Sndfile version")
+set(NOVELRT_SPDLOG_VERSION "1.5.0" CACHE STRING "Spdlog version")
+set(NOVELRT_VORBIS_VERSION "1.3.7" CACHE STRING "Opus version")
+set(NOVELRT_GSL_VERSION "3.1.0" CACHE STRING "ms-gsl version")
+
+if (NOVELRT_INCLUDE_CONAN_PATHS)
+  include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
+endif()
+
+find_package(Doxygen ${NOVELRT_DOXYGEN_VERSION}
+  COMPONENTS dot
 )
 
-set(NOVELRT_LIBRARY_SOURCES
-  ${NOVELRT_SOURCES}
-  src/NovelRunner_C.cpp
-)
+if(NOT DOXYGEN_FOUND)
+  message("Doxygen ${NOVELRT_DOXYGEN_VERSION} was not found, building documentation is disabled.")
+  set(NOVELRT_BUILD_DOCUMENTATION OFF)
+endif()
 
-set(NOVELRT_LIBRARY_LINK_LIBRARIES
-  ${NOVELRT_LINK_LIBRARIES}
-)
+add_subdirectory(src)
 
-if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" AND false)
-  target_compile_options(NovelRT
-    PRIVATE
-      -Werror
-      -Wall
-      -Wextra
-      -Wduplicate-enum
+if(NOVELRT_BUILD_SAMPLES)
+  add_subdirectory(samples)
+endif()
 
-      -Wlong-long
+if(NOVELRT_BUILD_DOCUMENTATION)
+  add_subdirectory(doxygen)
+endif()
 
-      -Wnull-dereference
+if(NOVELRT_BUILD_TESTS)
+  enable_testing()
 
-      -Wdouble-promotion
-      -Wshadow
-      -Wformat=2
-      -Wno-error=unused-parameter
-      -Wno-error=unused-variable
-  )
+  add_subdirectory(tests)
+endif()
 
-  set(SANITIZE_CODE ON)
-
-  # Enable various sanitizer extensions
-  if (${SANITIZE_CODE})
-    message("Enabling code sanitizer extensions.")
-
-    target_compile_options(NovelRT
-      PRIVATE
-      -fsanitize=undefined
-      -fsanitize=address
-      -fsanitize=shift
-      -fsanitize=shift-exponent
-      -fsanitize=shift-base
-      -fsanitize=integer-divide-by-zero
-      -fsanitize=unreachable
-      -fsanitize=vla-bound
-      -fsanitize=null
-      -fsanitize=return
-      -fsanitize=signed-integer-overflow
-      -fsanitize=bounds
-      -fsanitize=alignment
-      -fsanitize=object-size
-      -fsanitize=float-divide-by-zero
-      -fsanitize=float-cast-overflow
-      -fsanitize=nonnull-attribute
-      -fsanitize=returns-nonnull-attribute
-      -fsanitize=bool
-      -fsanitize=enum
-      -fsanitize=vptr
-      -fno-sanitize-recover=all
-    )
-
-    target_link_options(NovelRT
-      PRIVATE
-        -fsanitize=undefined
-        -fsanitize=address
-        -fsanitize=shift
-        -fsanitize=shift-exponent
-        -fsanitize=shift-base
-        -fsanitize=integer-divide-by-zero
-        -fsanitize=unreachable
-        -fsanitize=vla-bound
-        -fsanitize=null
-        -fsanitize=return
-        -fsanitize=signed-integer-overflow
-        -fsanitize=bounds
-        -fsanitize=alignment
-        -fsanitize=object-size
-        -fsanitize=float-divide-by-zero
-        -fsanitize=float-cast-overflow
-        -fsanitize=nonnull-attribute
-        -fsanitize=returns-nonnull-attribute
-        -fsanitize=bool
-        -fsanitize=enum
-        -fsanitize=vptr
-    )
-  endif ()
-endif ()
-
-add_library(NovelRTLib SHARED ${NOVELRT_LIBRARY_HEADERS} ${NOVELRT_LIBRARY_SOURCES})
-target_link_libraries(NovelRTLib ${NOVELRT_LIBRARY_LINK_LIBRARIES})
-
-# Docs
-
-if (DOXYGEN_FOUND)
-  set(DOXYGEN_INPUT_DIR ${PROJECT_SOURCE_DIR}/src)
-  set(DOXYGEN_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/docs)
-  set(DOXYGEN_INDEX_FILE ${DOXYGEN_OUTPUT_DIR}/html/index.html)
-  set(DOXYGEN_FAKE_INDEX_FILE ${DOXYGEN_OUTPUT_DIR}/html/__index.html)
-  set(DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
-  set(DOXYFILE_OUT ${DOXYGEN_OUTPUT_DIR}/Doxyfile)
-
-  set(DOCS_IMAGES
-    novel-chan_doxy.png
-  )
-  set(DOCS_RESOURCES
-    ${DOCS_IMAGES}
-  )
-
-  #Replace variables inside @@ with the current values
-  configure_file(${DOXYFILE_IN} ${DOXYFILE_OUT} @ONLY)
-  file(MAKE_DIRECTORY ${DOXYGEN_OUTPUT_DIR}) #Doxygen won't create this for us
-  file(COPY ${DOCS_RESOURCES} DESTINATION ${DOXYGEN_OUTPUT_DIR})
-
-  add_custom_command(OUTPUT
-                       ${DOXYGEN_INDEX_FILE}
-                       ${DOXYGEN_FAKE_INDEX_FILE}
-                     COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE_OUT}
-                     MAIN_DEPENDENCY ${DOXYFILE_OUT} ${DOXYFILE_IN}
-                     COMMENT "Generating docs")
-
-  add_custom_target(Doxygen ALL DEPENDS ${DOXYGEN_INDEX_FILE})
-endif (DOXYGEN_FOUND)
+add_subdirectory(resources)
